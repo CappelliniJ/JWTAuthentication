@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const app = express();
+const jwt = require("jsonwebtoken");
 const {
   models: { User },
 } = require("./db");
@@ -15,7 +16,8 @@ app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 
 app.post("/api/auth", async (req, res, next) => {
   try {
-    res.send({ token: await User.authenticate(req.body) });
+    const token = await User.authenticate(req.body);
+    res.send({ token });
   } catch (ex) {
     next(ex);
   }
@@ -23,13 +25,12 @@ app.post("/api/auth", async (req, res, next) => {
 
 app.get("/api/auth", async (req, res, next) => {
   try {
-    // res.send(await User.byToken(req.headers.authorization));
-    const token = req.headers.authorizationconst;
-    id = jwt.verify(token, JWT_SECRET);
-    const user = await User.findByPk(id);
+    const token = req.headers.authorization.split(" ")[1];
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findByPk(decodedToken.id);
 
-    if (req.user) {
-      res.json(req.user);
+    if (user) {
+      res.json(user);
     }
   } catch (ex) {
     next(ex);
