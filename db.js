@@ -1,5 +1,7 @@
 const Sequelize = require('sequelize');
 const { STRING } = Sequelize;
+const jwt = require('jsonwebtoken');
+
 const config = {
   logging: false
 };
@@ -7,6 +9,7 @@ const config = {
 if(process.env.LOGGING){
   delete config.logging;
 }
+
 const conn = new Sequelize(process.env.DATABASE_URL || 'postgres://localhost/acme_db', config);
 
 const User = conn.define('user', {
@@ -14,32 +17,34 @@ const User = conn.define('user', {
   password: STRING
 });
 
-User.byToken = async(token)=> {
+// Add JWT functionality to User model
+User.byToken = async (token) => {
   try {
-    const user = await User.findByPk(token);
-    if(user){
+    const { id } = await jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findByPk(id);
+    if (user) {
       return user;
     }
     const error = Error('bad credentials');
     error.status = 401;
     throw error;
-  }
-  catch(ex){
+  } catch (ex) {
     const error = Error('bad credentials');
     error.status = 401;
     throw error;
   }
 };
 
-User.authenticate = async({ username, password })=> {
+User.authenticate = async ({ username, password }) => {
   const user = await User.findOne({
     where: {
       username,
-      password
-    }
+      password,
+    },
   });
-  if(user){
-    return user.id; 
+  if (user) {
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET);
+    return { user: user.id, token };
   }
   const error = Error('bad credentials');
   error.status = 401;
